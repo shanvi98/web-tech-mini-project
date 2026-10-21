@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quizora — a problem set for the curious</title>
+  <meta name="description" content="Timed multiple-choice quizzes on web technologies, with explanations and local progress tracking. Built with plain HTML, CSS and JavaScript.">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="masthead">
+    <div class="wrap">
+      <div class="masthead__row">
+        <a class="wordmark" href="index.html" aria-label="Quizora home">
+          <span class="wordmark__dot" aria-hidden="true"></span>Quizora
+        </a>
+        <nav class="nav" aria-label="Primary">
+          <a href="#quizzes" aria-current="page">Quizzes</a>
+          <a href="#history">History</a>
+        </nav>
+      </div>
+      <div class="masthead__meta label">
+        <span>Problem sets for web technologies</span>
+        <span>Saved on this device only</span>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <!--
+      PAGE STATES (Phase 2+ will show exactly one at a time):
+        1. discover  - this landing view
+        2. briefing  - quiz details, difficulty pick, start
+        3. quiz      - the running quiz
+        4. results   - score + question-by-question review
+        5. history   - past attempts, best scores, clear
+      Only "discover" has content in Phase 1.
+    -->
+
+    <section class="intro" aria-labelledby="intro-title">
+      <div class="wrap intro__grid">
+        <h1 class="intro__title" id="intro-title">
+          Know it, or <em>find out why.</em>
+        </h1>
+        <div class="intro__aside">
+          <p class="intro__lede">
+            Short, timed quizzes on HTML, CSS and JavaScript. Every question ends
+            with the reason behind the answer, and every attempt is kept so you can
+            see what actually changed.
+          </p>
+          <dl class="stats" aria-label="Library size (placeholder until data is loaded)">
+            <div><dt>Quizzes</dt><dd>—</dd></div>
+            <div><dt>Questions</dt><dd>—</dd></div>
+            <div><dt>Levels</dt><dd>2</dd></div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="quizzes" aria-labelledby="quizzes-title">
+      <div class="wrap">
+        <div class="section__head">
+          <p class="label">Part I</p>
+          <h2 class="section__title" id="quizzes-title">Choose a subject</h2>
+        </div>
+
+        <!-- Phase 2: search box, category filters and quiz cards render here. -->
+        <p class="state-note label">Quiz library arrives in Phase 2.</p>
+      </div>
+    </section>
+
+    <!--
+      DESIGN SPECIMEN: shows the question-sheet component using the final
+      tokens so the visual direction can be approved before the engine exists.
+      Static markup; removed once Phase 3 renders real questions.
+    -->
+    <section class="section" aria-labelledby="specimen-title">
+      <div class="wrap">
+        <div class="section__head">
+          <p class="label">Specimen</p>
+          <h2 class="section__title" id="specimen-title">How a question looks</h2>
+        </div>
+
+        <article class="sheet" aria-label="Example question card (not interactive)">
+          <div class="sheet__bar label">
+            <span>CSS Layout · <span class="stamp stamp--hard">Intermediate</span></span>
+            <span>Question 3 of 10</span>
+          </div>
+          <div class="sheet__body">
+            <p class="sheet__num" aria-hidden="true">03</p>
+            <div>
+              <p class="sheet__q">Which property turns an element into a two-dimensional layout container with rows and columns?</p>
+              <ol class="options">
+                <li class="option">display: flex</li>
+                <li class="option option--picked">display: grid</li>
+                <li class="option">display: table-cell</li>
+                <li class="option">position: relative</li>
+              </ol>
+            </div>
+          </div>
+          <div class="sheet__foot">
+            <span class="label">Time left</span>
+            <div class="tick" role="presentation"><span style="--left: 62%"></span></div>
+            <span class="label">06:12</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="history" aria-labelledby="history-title">
+      <div class="wrap">
+        <div class="section__head">
+          <p class="label">Part II</p>
+          <h2 class="section__title" id="history-title">Your record</h2>
+        </div>
+
+        <!-- Phase 4: attempts and best scores read from localStorage. -->
+        <p class="state-note label">No attempts yet. Finished quizzes will be listed here.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer__row label">
+      <span>Quizora · Web Technologies mini project</span>
+      <span>HTML · CSS · JavaScript, nothing else</span>
+    </div>
+  </footer>
+</body>
+</html>
