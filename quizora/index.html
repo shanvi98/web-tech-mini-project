@@ -52,10 +52,10 @@
             with the reason behind the answer, and every attempt is kept so you can
             see what actually changed.
           </p>
-          <dl class="stats" aria-label="Library size (placeholder until data is loaded)">
-            <div><dt>Quizzes</dt><dd>—</dd></div>
-            <div><dt>Questions</dt><dd>—</dd></div>
-            <div><dt>Levels</dt><dd>2</dd></div>
+          <dl class="stats" aria-label="Library size">
+            <div><dt>Quizzes</dt><dd id="stat-quizzes">—</dd></div>
+            <div><dt>Questions</dt><dd id="stat-questions">—</dd></div>
+            <div><dt>Levels</dt><dd id="stat-levels">2</dd></div>
           </dl>
         </div>
       </div>
@@ -65,49 +65,40 @@
       <div class="wrap">
         <div class="section__head">
           <p class="label">Part I</p>
-          <h2 class="section__title" id="quizzes-title">Choose a subject</h2>
+          <h2 class="section__title" id="quizzes-title">The library</h2>
         </div>
 
-        <!-- Phase 2: search box, category filters and quiz cards render here. -->
-        <p class="state-note label">Quiz library arrives in Phase 2.</p>
-      </div>
-    </section>
+        <div class="library">
+          <aside class="library__side" aria-labelledby="subjects-title">
+            <h3 class="label" id="subjects-title">Subjects</h3>
+            <ul class="index" id="subject-list"></ul>
+          </aside>
 
-    <!--
-      DESIGN SPECIMEN: shows the question-sheet component using the final
-      tokens so the visual direction can be approved before the engine exists.
-      Static markup; removed once Phase 3 renders real questions.
-    -->
-    <section class="section" aria-labelledby="specimen-title">
-      <div class="wrap">
-        <div class="section__head">
-          <p class="label">Specimen</p>
-          <h2 class="section__title" id="specimen-title">How a question looks</h2>
-        </div>
+          <div class="library__main">
+            <form class="toolbar" id="search-form" role="search">
+              <label class="sr-only" for="search">Search quizzes</label>
+              <input class="field" id="search" name="q" type="search" placeholder="Search by title or topic" autocomplete="off">
+              <p class="label" id="result-count" role="status"></p>
+            </form>
 
-        <article class="sheet" aria-label="Example question card (not interactive)">
-          <div class="sheet__bar label">
-            <span>CSS Layout · <span class="stamp stamp--hard">Intermediate</span></span>
-            <span>Question 3 of 10</span>
-          </div>
-          <div class="sheet__body">
-            <p class="sheet__num" aria-hidden="true">03</p>
-            <div>
-              <p class="sheet__q">Which property turns an element into a two-dimensional layout container with rows and columns?</p>
-              <ol class="options">
-                <li class="option">display: flex</li>
-                <li class="option option--picked">display: grid</li>
-                <li class="option">display: table-cell</li>
-                <li class="option">position: relative</li>
-              </ol>
+            <div class="grid" id="quiz-grid">
+              <p class="state-note label">Loading quizzes&hellip;</p>
             </div>
+
+            <div class="state-box" id="empty-state" hidden>
+              <p class="state-box__title" id="empty-title">No quizzes match.</p>
+              <p>Try a shorter search or a different subject.</p>
+              <button class="btn btn--ghost" type="button" id="clear-filters">Clear filters</button>
+            </div>
+
+            <div class="state-box state-box--error" id="error-state" role="alert" hidden>
+              <p class="state-box__title">The quiz library could not be loaded.</p>
+              <p>The quiz data is missing or damaged. Reload the page; if it keeps happening, check that <span class="mono">js/data.js</span> is next to the page.</p>
+            </div>
+
+            <noscript><p class="state-note label">Quizora needs JavaScript to list and run quizzes.</p></noscript>
           </div>
-          <div class="sheet__foot">
-            <span class="label">Time left</span>
-            <div class="tick" role="presentation"><span style="--left: 62%"></span></div>
-            <span class="label">06:12</span>
-          </div>
-        </article>
+        </div>
       </div>
     </section>
 
@@ -130,5 +121,33 @@
       <span>HTML · CSS · JavaScript, nothing else</span>
     </div>
   </footer>
+  <dialog class="dialog" id="details" aria-labelledby="details-title">
+    <div class="dialog__bar label">
+      <span id="details-meta"></span>
+      <button class="dialog__close" type="button" id="details-close" aria-label="Close details">&times;</button>
+    </div>
+    <div class="dialog__body">
+      <h2 class="dialog__title" id="details-title"></h2>
+      <p id="details-summary"></p>
+
+      <fieldset class="levels">
+        <legend class="label">Difficulty</legend>
+        <div id="level-options"></div>
+      </fieldset>
+
+      <dl class="facts">
+        <div><dt>Questions</dt><dd id="fact-questions"></dd></div>
+        <div><dt>Time limit</dt><dd id="fact-time"></dd></div>
+      </dl>
+    </div>
+    <div class="dialog__foot">
+      <button class="btn btn--ghost" type="button" id="details-dismiss">Close</button>
+      <button class="btn" type="button" disabled aria-describedby="start-note">Start quiz</button>
+      <p class="label" id="start-note">Starting a quiz is built in Phase 3.</p>
+    </div>
+  </dialog>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>

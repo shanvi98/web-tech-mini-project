@@ -2,7 +2,7 @@
 
 A timed quiz platform for web-technology topics, built with plain HTML, CSS and JavaScript. No frameworks, no backend, no build step. Progress is stored in the browser's `localStorage`.
 
-> Status: **Phase 1 of 6** (foundation). The landing shell and design system exist; quizzes, the engine and history are built in later phases.
+> Status: **Phase 2 of 6** (visual foundation). The landing page, quiz library, search, subject filter and quiz details work. The quiz engine, results and history are built in later phases.
 
 ## Goals
 
@@ -30,7 +30,9 @@ All values are CSS custom properties at the top of `css/styles.css`; a dark them
 quizora/
   index.html        single page; sections act as screens
   css/styles.css    tokens, base, components
-  js/               (Phase 2+) app.js, data.js, storage.js, quiz.js, results.js
+  js/data.js        quiz content (5 quizzes, 50 questions)
+  js/app.js         discovery page: render, search, filter, details dialog
+  js/               (later) storage.js, quiz.js, results.js
   assets/           favicon
 ```
 
@@ -49,13 +51,21 @@ quizora/
 **Data model**
 
 ```js
-quiz     = { id, title, category, summary, levels: { beginner: [question], intermediate: [question] }, minutesPerLevel }
+LEVELS   = { beginner: { label, secondsPerQuestion: 45 }, intermediate: { label, secondsPerQuestion: 60 } }
+quiz     = { id, title, category, featured, summary, levels: { beginner: [question], intermediate: [question] } }
 question = { id, text, options: [4 strings], answerIndex, explanation }
 attempt  = { v: 1, quizId, level, takenAt, secondsUsed, total, correct, incorrect, unanswered, answers: [index | null] }
 prefs    = { v: 1, ... }
 ```
 
 Stored keys are prefixed `quizora:` and carry a version so outdated data can be discarded safely. Scores are always computed from `answers` against `answerIndex`, never stored as an assumption.
+
+## Phase 2 notes
+
+- Scripts are plain `<script>` tags, not ES modules, so the page also works when opened from `file://` (browsers block modules there).
+- Quiz time is derived: questions x seconds per level, rounded to minutes.
+- All text from data or the search box is inserted with `textContent`, never `innerHTML`.
+- The details dialog uses the native `<dialog>` element (focus trap, Esc to close). Its Start button is intentionally disabled until the engine exists in Phase 3.
 
 ## Run locally
 
@@ -73,8 +83,8 @@ Static hosting only. GitHub Pages (publish from the `quizora` folder or repo roo
 
 ## Roadmap
 
-1. Foundation (this phase)
-2. Landing page, search, filters, quiz cards
+1. Foundation (done)
+2. Landing page, search, filters, quiz cards (this phase)
 3. Quiz engine
 4. Results, review and history
 5. Quality and accessibility pass
