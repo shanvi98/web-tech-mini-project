@@ -2,7 +2,7 @@
 
 A timed quiz platform for web-technology topics, built with plain HTML, CSS and JavaScript. No frameworks, no backend, no build step. Progress is stored in the browser's `localStorage`.
 
-> Status: **Phase 3 of 6** (quiz engine). You can browse, start, take, and submit a timed quiz and see a score summary. Answer review and saved history are built in Phase 4.
+> Status: **Phase 4 of 6** (results and persistence). You can take a timed quiz, review every answer with its explanation, and track attempts and best scores that survive a reload.
 
 ## Goals
 
@@ -33,7 +33,8 @@ quizora/
   js/data.js        quiz content (5 quizzes, 50 questions)
   js/quiz.js        quiz engine: shuffle, answers, timing, scoring (no DOM)
   js/app.js         screens: library, details, quiz, result summary
-  js/               (later) storage.js, results.js
+  js/storage.js     attempt history in localStorage, validated on every read
+  js/results.js     answer review (data + DOM)
   assets/           favicon
 ```
 
@@ -55,11 +56,11 @@ quizora/
 LEVELS   = { beginner: { label, secondsPerQuestion: 45 }, intermediate: { label, secondsPerQuestion: 60 } }
 quiz     = { id, title, category, featured, summary, levels: { beginner: [question], intermediate: [question] } }
 question = { id, text, options: [4 strings], answerIndex, explanation }
-attempt  = { v: 1, quizId, level, takenAt, secondsUsed, total, correct, incorrect, unanswered, answers: [index | null] }
-prefs    = { v: 1, ... }
+attempt  = { quizId, quizTitle, levelKey, takenAt, secondsUsed, total, correct, incorrect, unanswered, reason }
+stored   = { v: 1, attempts: [attempt, ...] }   // key "quizora:attempts", newest 50 kept
 ```
 
-Stored keys are prefixed `quizora:` and carry a version so outdated data can be discarded safely. Scores are always computed from `answers` against `answerIndex`, never stored as an assumption.
+The stored value carries a version so outdated data is discarded safely. Scores are always computed from the chosen answers against the correct option; the percent is recomputed from the counts when history is read, never trusted from storage. Only summaries are stored, not individual answers.
 
 ## Phase 2 notes
 
@@ -77,6 +78,16 @@ Stored keys are prefixed `quizora:` and carry a version so outdated data can be 
 - **Reload:** reloading mid-quiz discards the attempt on purpose (a browser warning appears first). Resuming is not implemented.
 - **Unanswered:** stored as `null`, counted separately, never as correct.
 - **Answers stay hidden:** the quiz screen never renders correct answers or explanations; the engine holds them until Phase 4 review.
+
+## Phase 4 notes
+
+- **Review:** `buildReview()` returns nothing until the session is submitted, so answers cannot be shown early. Each question is marked with text tags ("Correct answer", "Your answer") as well as colour.
+- **History reads are defensive:** invalid JSON, wrong version, wrong shape, or individual bad entries are skipped; the page shows a notice and keeps working. The next save writes a clean copy.
+- **Blocked or full storage:** attempts fall back to memory for the current tab and the result screen says so.
+- **Limits:** the newest 50 attempts are kept; the table shows the latest 10.
+- **Leaving a quiz** or reloading mid-quiz saves nothing. Only submitted or timed-out attempts are recorded.
+- **Clear history** asks for confirmation and removes the stored key.
+- All stored text (such as quiz titles) is rendered with `textContent`, so edited storage cannot inject markup.
 
 ## Run locally
 
@@ -97,6 +108,6 @@ Static hosting only. GitHub Pages (publish from the `quizora` folder or repo roo
 1. Foundation (done)
 2. Landing page, search, filters, quiz cards (done)
 3. Quiz engine (done)
-4. Results, review and history
+4. Results, review and history (done)
 5. Quality and accessibility pass
 6. Deployment and handover

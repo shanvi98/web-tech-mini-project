@@ -33,10 +33,10 @@
 
     <!--
       PAGE STATES (Phase 2+ will show exactly one at a time):
-        discover  - landing, library and record (#screen-discover)
+        discover  - landing, library and record/history (#screen-discover)
         briefing  - quiz details, difficulty, start (a dialog over discover)
         quiz      - the running quiz (#screen-quiz)
-        result    - score summary (#screen-result); review + history in Phase 4
+        result    - score, best-score note and answer review (#screen-result)
     -->
 
     <!-- SCREEN: discover -->
@@ -109,10 +109,41 @@
             <h2 class="section__title" id="history-title">Your record</h2>
           </div>
 
-          <!-- Phase 4: attempts and best scores read from localStorage. -->
-          <p class="state-note label">No attempts yet. Finished quizzes will be listed here.</p>
+          <p class="state-note label" id="history-empty">No attempts yet. Finished quizzes will be listed here.</p>
+        <p class="state-note label" id="history-note" role="status" hidden></p>
+
+        <div id="history-body" hidden>
+          <dl class="facts facts--3" aria-label="History summary">
+            <div><dt>Attempts</dt><dd id="hist-count"></dd></div>
+            <div><dt>Best score</dt><dd id="hist-best"></dd></div>
+            <div><dt>Average</dt><dd id="hist-avg"></dd></div>
+          </dl>
+
+          <h3 class="label table-title">Best by quiz</h3>
+          <div class="table-wrap">
+            <table class="table" id="best-table">
+              <caption class="sr-only">Best score for each quiz and level</caption>
+              <thead><tr><th scope="col">Quiz</th><th scope="col">Level</th><th scope="col" class="num">Best</th><th scope="col" class="num hide-sm">Attempts</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <h3 class="label table-title">Recent attempts</h3>
+          <div class="table-wrap">
+            <table class="table" id="attempts-table">
+              <caption class="sr-only">Most recent attempts, newest first</caption>
+              <thead><tr><th scope="col">When</th><th scope="col">Quiz</th><th scope="col" class="hide-sm">Level</th><th scope="col" class="num">Score</th><th scope="col" class="num hide-sm">Time</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="history__actions">
+            <button class="btn btn--ghost" type="button" id="history-clear">Clear history</button>
+            <p class="label" id="history-shown"></p>
+          </div>
         </div>
-      </section>
+      </div>
+    </section>
     </div>
 
     <!-- SCREEN: quiz (filled by js/app.js while a quiz is running) -->
@@ -161,7 +192,7 @@
       </div>
     </section>
 
-    <!-- SCREEN: result (summary only in Phase 3; review and history come in Phase 4) -->
+    <!-- SCREEN: result (score, personal-best note, full answer review) -->
     <section class="screen" id="screen-result" aria-labelledby="result-heading" hidden>
       <div class="wrap result">
         <p class="label" id="result-kicker"></p>
@@ -179,11 +210,25 @@
           <div><dt>Time taken</dt><dd id="res-time"></dd></div>
         </dl>
 
+        <p class="result__best" id="result-best"></p>
+        <p class="state-note label" id="result-save-note" role="status" hidden></p>
+
         <div class="result__actions">
           <button class="btn" type="button" id="result-retry">Try again</button>
           <button class="btn btn--ghost" type="button" id="result-back">Back to library</button>
         </div>
-        <p class="label">Answer review and saved history arrive in Phase 4.</p>
+
+        <section class="review" aria-labelledby="review-title">
+          <div class="review__head">
+            <h2 class="section__title" id="review-title">Review</h2>
+            <div class="review__filter" role="group" aria-label="Filter review">
+              <button type="button" id="review-all" aria-pressed="true"></button>
+              <button type="button" id="review-missed" aria-pressed="false"></button>
+            </div>
+          </div>
+          <p class="state-note label" id="review-none" hidden>Nothing missed. Every question was answered correctly.</p>
+          <ol class="review__list" id="review-list"></ol>
+        </section>
       </div>
     </section>
   </main>
@@ -233,6 +278,8 @@
 
   <script src="js/data.js"></script>
   <script src="js/quiz.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/results.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

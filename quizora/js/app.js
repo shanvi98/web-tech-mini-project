@@ -1,5 +1,6 @@
 /* Quizora: screen wiring.
-   Discovery (library, search, filters, details) and the running quiz.
+   Discovery (library, search, filters, details), the running quiz, the
+   answer review and the saved history.
    Scoring and timing rules live in quiz.js; this file only draws and listens.
    Text is always inserted with textContent, never innerHTML. */
 
@@ -28,6 +29,8 @@
     if (text !== undefined) node.textContent = text;
     return node;
   }
+
+  function levelLabel(key) { return LEVELS[key] ? LEVELS[key].label : key; }
 
   function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
 
@@ -126,7 +129,7 @@
     });
   }
 
-  function buildCard(quiz) {
+  function buildCard(quiz, history) {
     var card = make('article', 'card');
 
     var bar = make('div', 'card__bar label');
@@ -137,6 +140,10 @@
     var body = make('div', 'card__body');
     body.appendChild(make('h3', 'card__title', quiz.title));
     body.appendChild(make('p', 'card__summary', quiz.summary || ''));
+    var best = QuizStore.bestFor(history, quiz.id);
+    if (best) {
+      body.appendChild(make('p', 'label card__best', 'Your best: ' + best.percent + '% · ' + levelLabel(best.levelKey)));
+    }
     card.appendChild(body);
 
     var foot = make('div', 'card__foot');
@@ -155,9 +162,10 @@
     var grid = byId('quiz-grid');
     var empty = byId('empty-state');
     var visible = quizzes.filter(matches);
+    var history = QuizStore.load();
 
     grid.textContent = '';
-    visible.forEach(function (quiz) { grid.appendChild(buildCard(quiz)); });
+    visible.forEach(function (quiz) { grid.appendChild(buildCard(quiz, history)); });
 
     grid.hidden = visible.length === 0;
     empty.hidden = visible.length !== 0;
@@ -201,6 +209,7 @@
 
     var options = byId('level-options');
     options.textContent = '';
+    var history = QuizStore.load();
     Object.keys(LEVELS).forEach(function (key, i) {
       var label = make('label', 'level');
       var input = make('input');
@@ -209,7 +218,10 @@
       input.value = key;
       input.checked = i === 0;
       label.appendChild(input);
-      label.appendChild(make('span', 'level__name', LEVELS[key].label));
+      var name = make('span', 'level__name', LEVELS[key].label);
+      var best = QuizStore.bestFor(history, quiz.id, key);
+      if (best) name.appendChild(make('span', 'level__best', 'best ' + best.percent + '%'));
+      label.appendChild(name);
       label.appendChild(make('span', 'level__meta', plural(quiz.levels[key].length, 'question') + ' · ' + minutesFor(quiz, key) + ' min'));
       options.appendChild(label);
     });
@@ -395,6 +407,7 @@
     lastRun = { quiz: quiz, levelKey: levelKey };
     announced = {};
     byId('quiz-live').textContent = '';
+    byId('review-list').textContent = '';
 
     byId('quiz-kicker').textContent = quiz.category;
     byId('quiz-heading').textContent = quiz.title;
@@ -484,7 +497,8 @@
     var result = QuizEngine.submit(session, Date.now(), reason);
     window.removeEventListener('beforeunload', onBeforeUnload);
     if (byId('confirm').open) closeConfirm(false);
-    renderResult(result);
+    var outcome = recordAttempt(result);
+    renderResult(result, outcome);
     showScreen('result', 'result-heading');
   }
 
@@ -510,7 +524,34 @@
       });
   }
 
-  function renderResult(result) {
+  // Save the attempt once (finishQuiz is guarded) and refresh anything that shows history.
+  function recordAttempt(result) {
+    var before = QuizStore.bestFor(QuizStore.load(), result.quizId, result.levelKey);
+    var state = QuizStore.save({
+      quizId: result.quizId,
+      quizTitle: lastRun.quiz.title,
+      levelKey: result.levelKey,
+      takenAt: Date.now(),
+      secondsUsed: result.secondsUsed,
+      total: result.total,
+      correct: result.correct,
+      incorrect: result.incorrect,
+      unanswered: result.unanswered,
+      reason: result.reason
+    });
+    renderHistory();
+    renderGrid();
+    return { before: before, state: state };
+  }
+
+  function bestMessage(result, before) {
+    if (!before) return 'First attempt at this level.';
+    if (result.percent > before.percent) return 'New personal best: ' + result.percent + '% (previous ' + before.percent + '%).';
+    if (result.percent === before.percent) return 'Matches your best of ' + before.percent + '%.';
+    return 'Your best at this level is ' + before.percent + '%.';
+  }
+
+  function renderResult(result, outcome) {
     var timedOut = result.reason === 'timeout';
     byId('result-kicker').textContent = lastRun.quiz.title + ' · ' + LEVELS[result.levelKey].label;
     byId('result-heading').textContent = timedOut ? 'Time’s up.' : 'Submitted.';
@@ -521,6 +562,130 @@
     byId('res-incorrect').textContent = String(result.incorrect);
     byId('res-unanswered').textContent = String(result.unanswered);
     byId('res-time').textContent = formatClock(result.secondsUsed);
+
+    byId('result-best').textContent = outcome.state === 'invalid' ? '' : bestMessage(result, outcome.before);
+    var note = byId('result-save-note');
+    if (outcome.state === 'memory') {
+      note.textContent = 'This browser is not letting Quizora save history, so this attempt will be lost when you close the tab.';
+      note.hidden = false;
+    } else if (outcome.state === 'invalid') {
+      note.textContent = 'This attempt could not be recorded.';
+      note.hidden = false;
+    } else {
+      note.hidden = true;
+    }
+
+    // Review is built only from a submitted session.
+    var review = QuizResults.buildReview(session);
+    var counts = QuizResults.countStatuses(review);
+    var missed = counts.incorrect + counts.unanswered;
+    QuizResults.renderReview(byId('review-list'), review);
+    byId('review-all').textContent = 'All (' + review.length + ')';
+    byId('review-missed').textContent = 'Missed (' + missed + ')';
+    byId('review-missed').disabled = missed === 0;
+    byId('review-none').hidden = missed !== 0;
+    setReviewFilter('all');
+  }
+
+  function setReviewFilter(mode) {
+    byId('review-all').setAttribute('aria-pressed', String(mode === 'all'));
+    byId('review-missed').setAttribute('aria-pressed', String(mode === 'missed'));
+    byId('review-list').querySelectorAll('.rev').forEach(function (item) {
+      item.hidden = mode === 'missed' && item.dataset.status === 'correct';
+    });
+  }
+
+  // ---------- history ----------
+
+  var RECENT_SHOWN = 10;
+
+  function formatWhen(timestamp) {
+    try {
+      return new Date(timestamp).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function addRow(tbody, cells) {
+    var row = make('tr');
+    cells.forEach(function (cell) {
+      row.appendChild(make('td', cell.className || '', cell.text));
+    });
+    tbody.appendChild(row);
+  }
+
+  function renderHistory() {
+    var attempts = QuizStore.load();
+    var status = QuizStore.status();
+    var messages = [];
+    if (status.damaged) messages.push('Some saved history could not be read and was skipped.');
+    if (!status.available) messages.push('This browser is blocking saved history, so attempts last only until the tab is closed.');
+    var note = byId('history-note');
+    note.textContent = messages.join(' ');
+    note.hidden = messages.length === 0;
+
+    var empty = attempts.length === 0;
+    byId('history-empty').hidden = !empty;
+    byId('history-body').hidden = empty;
+    if (empty) return;
+
+    var totals = QuizStore.stats(attempts);
+    byId('hist-count').textContent = String(totals.count);
+    byId('hist-best').textContent = totals.bestPercent + '%';
+    byId('hist-avg').textContent = totals.averagePercent + '%';
+
+    var bestBody = byId('best-table').querySelector('tbody');
+    bestBody.textContent = '';
+    QuizStore.bestByQuizLevel(attempts).forEach(function (group) {
+      addRow(bestBody, [
+        { text: group.quizTitle },
+        { text: levelLabel(group.levelKey) },
+        { text: group.best.percent + '%', className: 'num' },
+        { text: String(group.count), className: 'num hide-sm' }
+      ]);
+    });
+
+    var recentBody = byId('attempts-table').querySelector('tbody');
+    recentBody.textContent = '';
+    attempts.slice().reverse().slice(0, RECENT_SHOWN).forEach(function (a) {
+      addRow(recentBody, [
+        { text: formatWhen(a.takenAt), className: 'nowrap' },
+        { text: a.quizTitle },
+        { text: levelLabel(a.levelKey), className: 'hide-sm' },
+        { text: a.correct + '/' + a.total + ' · ' + a.percent + '%' + (a.reason === 'timeout' ? ' · timed out' : ''), className: 'num' },
+        { text: formatClock(a.secondsUsed), className: 'num hide-sm' }
+      ]);
+    });
+
+    var shown = [];
+    if (attempts.length > RECENT_SHOWN) shown.push('Showing the latest ' + RECENT_SHOWN + ' of ' + attempts.length + '.');
+    if (attempts.length >= QuizStore.MAX_ATTEMPTS) shown.push('Only the latest ' + QuizStore.MAX_ATTEMPTS + ' attempts are kept.');
+    byId('history-shown').textContent = shown.join(' ');
+  }
+
+  function confirmClearHistory() {
+    var count = QuizStore.load().length;
+    if (count === 0) return;
+    ask({
+      title: 'Clear all history?',
+      message: 'This deletes ' + plural(count, 'saved attempt') + ' and your best scores from this browser. It cannot be undone.',
+      ok: 'Clear history',
+      cancel: 'Keep it'
+    }).then(function (yes) {
+      if (!yes) return;
+      var cleared = QuizStore.clear();
+      renderHistory();
+      renderGrid();
+      var heading = byId('history-title');
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+      if (!cleared) {
+        var note = byId('history-note');
+        note.textContent = 'History could not be cleared. Try again, or clear this site’s data in your browser settings.';
+        note.hidden = false;
+      }
+    });
   }
 
   function wireQuizEvents() {
@@ -552,6 +717,10 @@
     byId('result-retry').addEventListener('click', function () {
       if (lastRun) startQuiz(lastRun.quiz, lastRun.levelKey);
     });
+    byId('review-all').addEventListener('click', function () { setReviewFilter('all'); });
+    byId('review-missed').addEventListener('click', function () { setReviewFilter('missed'); });
+    byId('history-clear').addEventListener('click', confirmClearHistory);
+
     byId('result-back').addEventListener('click', function () {
       session = null;
       leaveToLibrary();
@@ -589,6 +758,7 @@
     renderStats();
     renderSubjects();
     renderGrid();
+    renderHistory();
     wireEvents();
     wireQuizEvents();
     document.body.dataset.screen = 'discover';
