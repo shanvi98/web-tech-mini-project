@@ -8,7 +8,7 @@
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/styles.css">
 </head>
-<body>
+<body data-screen="discover">
   <a class="skip-link" href="#main">Skip to content</a>
 
   <header class="masthead">
@@ -33,84 +33,157 @@
 
     <!--
       PAGE STATES (Phase 2+ will show exactly one at a time):
-        1. discover  - this landing view
-        2. briefing  - quiz details, difficulty pick, start
-        3. quiz      - the running quiz
-        4. results   - score + question-by-question review
-        5. history   - past attempts, best scores, clear
-      Only "discover" has content in Phase 1.
+        discover  - landing, library and record (#screen-discover)
+        briefing  - quiz details, difficulty, start (a dialog over discover)
+        quiz      - the running quiz (#screen-quiz)
+        result    - score summary (#screen-result); review + history in Phase 4
     -->
 
-    <section class="intro" aria-labelledby="intro-title">
-      <div class="wrap intro__grid">
-        <h1 class="intro__title" id="intro-title">
-          Know it, or <em>find out why.</em>
-        </h1>
-        <div class="intro__aside">
-          <p class="intro__lede">
-            Short, timed quizzes on HTML, CSS and JavaScript. Every question ends
-            with the reason behind the answer, and every attempt is kept so you can
-            see what actually changed.
-          </p>
-          <dl class="stats" aria-label="Library size">
-            <div><dt>Quizzes</dt><dd id="stat-quizzes">—</dd></div>
-            <div><dt>Questions</dt><dd id="stat-questions">—</dd></div>
-            <div><dt>Levels</dt><dd id="stat-levels">2</dd></div>
-          </dl>
-        </div>
-      </div>
-    </section>
-
-    <section class="section" id="quizzes" aria-labelledby="quizzes-title">
-      <div class="wrap">
-        <div class="section__head">
-          <p class="label">Part I</p>
-          <h2 class="section__title" id="quizzes-title">The library</h2>
-        </div>
-
-        <div class="library">
-          <aside class="library__side" aria-labelledby="subjects-title">
-            <h3 class="label" id="subjects-title">Subjects</h3>
-            <ul class="index" id="subject-list"></ul>
-          </aside>
-
-          <div class="library__main">
-            <form class="toolbar" id="search-form" role="search">
-              <label class="sr-only" for="search">Search quizzes</label>
-              <input class="field" id="search" name="q" type="search" placeholder="Search by title or topic" autocomplete="off">
-              <p class="label" id="result-count" role="status"></p>
-            </form>
-
-            <div class="grid" id="quiz-grid">
-              <p class="state-note label">Loading quizzes&hellip;</p>
-            </div>
-
-            <div class="state-box" id="empty-state" hidden>
-              <p class="state-box__title" id="empty-title">No quizzes match.</p>
-              <p>Try a shorter search or a different subject.</p>
-              <button class="btn btn--ghost" type="button" id="clear-filters">Clear filters</button>
-            </div>
-
-            <div class="state-box state-box--error" id="error-state" role="alert" hidden>
-              <p class="state-box__title">The quiz library could not be loaded.</p>
-              <p>The quiz data is missing or damaged. Reload the page; if it keeps happening, check that <span class="mono">js/data.js</span> is next to the page.</p>
-            </div>
-
-            <noscript><p class="state-note label">Quizora needs JavaScript to list and run quizzes.</p></noscript>
+    <!-- SCREEN: discover -->
+    <div id="screen-discover">
+      <section class="intro" aria-labelledby="intro-title">
+        <div class="wrap intro__grid">
+          <h1 class="intro__title" id="intro-title">
+            Know it, or <em>find out why.</em>
+          </h1>
+          <div class="intro__aside">
+            <p class="intro__lede">
+              Short, timed quizzes on HTML, CSS and JavaScript. Every question ends
+              with the reason behind the answer, and every attempt is kept so you can
+              see what actually changed.
+            </p>
+            <dl class="stats" aria-label="Library size">
+              <div><dt>Quizzes</dt><dd id="stat-quizzes">—</dd></div>
+              <div><dt>Questions</dt><dd id="stat-questions">—</dd></div>
+              <div><dt>Levels</dt><dd id="stat-levels">2</dd></div>
+            </dl>
           </div>
         </div>
+      </section>
+
+      <section class="section" id="quizzes" aria-labelledby="quizzes-title">
+        <div class="wrap">
+          <div class="section__head">
+            <p class="label">Part I</p>
+            <h2 class="section__title" id="quizzes-title">The library</h2>
+          </div>
+
+          <div class="library">
+            <aside class="library__side" aria-labelledby="subjects-title">
+              <h3 class="label" id="subjects-title">Subjects</h3>
+              <ul class="index" id="subject-list"></ul>
+            </aside>
+
+            <div class="library__main">
+              <form class="toolbar" id="search-form" role="search">
+                <label class="sr-only" for="search">Search quizzes</label>
+                <input class="field" id="search" name="q" type="search" placeholder="Search by title or topic" autocomplete="off">
+                <p class="label" id="result-count" role="status"></p>
+              </form>
+
+              <div class="grid" id="quiz-grid">
+                <p class="state-note label">Loading quizzes&hellip;</p>
+              </div>
+
+              <div class="state-box" id="empty-state" hidden>
+                <p class="state-box__title" id="empty-title">No quizzes match.</p>
+                <p>Try a shorter search or a different subject.</p>
+                <button class="btn btn--ghost" type="button" id="clear-filters">Clear filters</button>
+              </div>
+
+              <div class="state-box state-box--error" id="error-state" role="alert" hidden>
+                <p class="state-box__title">The quiz library could not be loaded.</p>
+                <p>The quiz data is missing or damaged. Reload the page; if it keeps happening, check that <span class="mono">js/data.js</span> is next to the page.</p>
+              </div>
+
+              <noscript><p class="state-note label">Quizora needs JavaScript to list and run quizzes.</p></noscript>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="history" aria-labelledby="history-title">
+        <div class="wrap">
+          <div class="section__head">
+            <p class="label">Part II</p>
+            <h2 class="section__title" id="history-title">Your record</h2>
+          </div>
+
+          <!-- Phase 4: attempts and best scores read from localStorage. -->
+          <p class="state-note label">No attempts yet. Finished quizzes will be listed here.</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- SCREEN: quiz (filled by js/app.js while a quiz is running) -->
+    <section class="screen" id="screen-quiz" aria-labelledby="quiz-heading" hidden>
+      <div class="wrap quiz">
+        <div class="quiz__top">
+          <div>
+            <p class="label" id="quiz-kicker"></p>
+            <h1 class="quiz__title" id="quiz-heading" tabindex="-1"></h1>
+          </div>
+          <button class="btn btn--ghost" type="button" id="quiz-leave">Leave quiz</button>
+        </div>
+
+        <article class="sheet">
+          <div class="sheet__bar label">
+            <span><span class="stamp" id="quiz-level"></span></span>
+            <span id="quiz-position"></span>
+          </div>
+
+          <div class="sheet__body">
+            <p class="sheet__num" id="q-number" aria-hidden="true"></p>
+            <fieldset class="qset">
+              <legend class="sheet__q" id="q-text"></legend>
+              <div class="options" id="q-options"></div>
+            </fieldset>
+          </div>
+
+          <div class="sheet__foot">
+            <span class="label">Time left</span>
+            <div class="tick" aria-hidden="true"><span id="quiz-bar"></span></div>
+            <span class="label clock" id="quiz-clock" role="timer"></span>
+          </div>
+
+          <div class="sheet__nav">
+            <button class="btn btn--ghost" type="button" id="q-prev">Previous</button>
+            <ol class="qnav" id="q-nav" aria-label="Question navigator"></ol>
+            <button class="btn btn--ghost" type="button" id="q-next">Next</button>
+          </div>
+        </article>
+
+        <div class="quiz__submit">
+          <p class="label" id="quiz-progress"></p>
+          <button class="btn" type="button" id="quiz-submit">Submit quiz</button>
+        </div>
+        <p class="sr-only" id="quiz-live" aria-live="polite"></p>
       </div>
     </section>
 
-    <section class="section" id="history" aria-labelledby="history-title">
-      <div class="wrap">
-        <div class="section__head">
-          <p class="label">Part II</p>
-          <h2 class="section__title" id="history-title">Your record</h2>
+    <!-- SCREEN: result (summary only in Phase 3; review and history come in Phase 4) -->
+    <section class="screen" id="screen-result" aria-labelledby="result-heading" hidden>
+      <div class="wrap result">
+        <p class="label" id="result-kicker"></p>
+        <h1 class="result__title" id="result-heading" tabindex="-1"></h1>
+
+        <div class="result__score">
+          <p class="result__big"><span id="result-correct"></span><span class="result__of" id="result-total"></span></p>
+          <p class="result__pct" id="result-percent"></p>
         </div>
 
-        <!-- Phase 4: attempts and best scores read from localStorage. -->
-        <p class="state-note label">No attempts yet. Finished quizzes will be listed here.</p>
+        <dl class="facts facts--4">
+          <div><dt>Correct</dt><dd id="res-correct"></dd></div>
+          <div><dt>Incorrect</dt><dd id="res-incorrect"></dd></div>
+          <div><dt>Unanswered</dt><dd id="res-unanswered"></dd></div>
+          <div><dt>Time taken</dt><dd id="res-time"></dd></div>
+        </dl>
+
+        <div class="result__actions">
+          <button class="btn" type="button" id="result-retry">Try again</button>
+          <button class="btn btn--ghost" type="button" id="result-back">Back to library</button>
+        </div>
+        <p class="label">Answer review and saved history arrive in Phase 4.</p>
       </div>
     </section>
   </main>
@@ -142,12 +215,24 @@
     </div>
     <div class="dialog__foot">
       <button class="btn btn--ghost" type="button" id="details-dismiss">Close</button>
-      <button class="btn" type="button" disabled aria-describedby="start-note">Start quiz</button>
-      <p class="label" id="start-note">Starting a quiz is built in Phase 3.</p>
+      <button class="btn" type="button" id="details-start">Start quiz</button>
+      <p class="label start-error" id="start-error" role="alert" hidden></p>
+    </div>
+  </dialog>
+
+  <dialog class="dialog dialog--small" id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+    <div class="dialog__body">
+      <h2 class="dialog__title dialog__title--sm" id="confirm-title"></h2>
+      <p id="confirm-message"></p>
+    </div>
+    <div class="dialog__foot">
+      <button class="btn btn--ghost" type="button" id="confirm-cancel"></button>
+      <button class="btn" type="button" id="confirm-ok"></button>
     </div>
   </dialog>
 
   <script src="js/data.js"></script>
+  <script src="js/quiz.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

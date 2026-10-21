@@ -1,5 +1,6 @@
-/* Quizora: screen wiring for the discovery page.
-   Phase 2 covers the library, search, subject filter and quiz details.
+/* Quizora: screen wiring.
+   Discovery (library, search, filters, details) and the running quiz.
+   Scoring and timing rules live in quiz.js; this file only draws and listens.
    Text is always inserted with textContent, never innerHTML. */
 
 (function () {
@@ -11,6 +12,13 @@
   var state = { query: '', category: 'all' };
   var quizzes = [];
   var openQuiz = null;
+
+  // Quiz run state. `session` is null whenever no quiz is in progress.
+  var session = null;
+  var lastRun = null;      // { quiz, levelKey } so "Try again" can restart
+  var timerId = null;
+  var announced = {};      // timer announcements already spoken this run
+  var confirmResolve = null;
 
   function byId(id) { return document.getElementById(id); }
 
@@ -206,6 +214,7 @@
       options.appendChild(label);
     });
 
+    byId('start-error').hidden = true;
     updateFacts();
     byId('details').showModal();
   }
@@ -271,6 +280,298 @@
     });
   }
 
+  // ---------- screens ----------
+
+  var SCREENS = ['discover', 'quiz', 'result'];
+
+  function showScreen(name, focusId) {
+    SCREENS.forEach(function (key) { byId('screen-' + key).hidden = key !== name; });
+    document.body.dataset.screen = name;
+    window.scrollTo(0, 0);
+    if (focusId) byId(focusId).focus({ preventScroll: true });
+  }
+
+  function leaveToLibrary() {
+    showScreen('discover');
+    byId('quizzes').scrollIntoView();
+  }
+
+  // ---------- confirm dialog (resolves true only on the confirm button) ----------
+
+  function ask(options) {
+    var dialog = byId('confirm');
+    if (confirmResolve) closeConfirm(false);
+    byId('confirm-title').textContent = options.title;
+    byId('confirm-message').textContent = options.message;
+    byId('confirm-ok').textContent = options.ok;
+    byId('confirm-cancel').textContent = options.cancel;
+    return new Promise(function (resolve) {
+      confirmResolve = resolve;
+      dialog.dataset.answer = 'no';
+      dialog.showModal();
+    });
+  }
+
+  // Answer first, then close, so the result never depends on the
+  // timing of the dialog's "close" event (which still covers the Esc key).
+  function closeConfirm(answer) {
+    var dialog = byId('confirm');
+    dialog.dataset.answer = answer ? 'yes' : 'no';
+    settleConfirm();
+    if (dialog.open) dialog.close();
+  }
+
+  function settleConfirm() {
+    var resolve = confirmResolve;
+    confirmResolve = null;
+    if (resolve) resolve(byId('confirm').dataset.answer === 'yes');
+  }
+
+  // ---------- timer ----------
+
+  function stopTimer() {
+    if (timerId !== null) {
+      clearInterval(timerId);
+      timerId = null;
+    }
+  }
+
+  function startTimer() {
+    stopTimer();   // never run two timers
+    timerId = setInterval(tick, 500);
+  }
+
+  function formatClock(seconds) {
+    var m = Math.floor(seconds / 60);
+    var r = seconds % 60;
+    return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
+  }
+
+  function renderTimer(left) {
+    byId('quiz-clock').textContent = formatClock(left);
+    var ratio = session.totalSeconds > 0 ? left / session.totalSeconds : 0;
+    byId('quiz-bar').style.setProperty('--left', (ratio * 100).toFixed(1) + '%');
+    byId('quiz-bar').parentNode.classList.toggle('tick--low', ratio <= 0.2);
+  }
+
+  function announceTime(left) {
+    var message = null;
+    if (left <= 10 && !announced.ten) { announced.ten = true; message = '10 seconds left'; }
+    else if (left <= 30 && !announced.thirty) { announced.thirty = true; message = '30 seconds left'; }
+    else if (left <= 60 && session.totalSeconds > 90 && !announced.minute) { announced.minute = true; message = '1 minute left'; }
+    if (message) byId('quiz-live').textContent = message;
+  }
+
+  function tick() {
+    if (!session || session.submitted) { stopTimer(); return; }
+    var left = QuizEngine.remainingSeconds(session, Date.now());
+    renderTimer(left);
+    announceTime(left);
+    if (left <= 0) finishQuiz('timeout');
+  }
+
+  // ---------- running a quiz ----------
+
+  function onBeforeUnload(event) {
+    event.preventDefault();
+    event.returnValue = '';
+  }
+
+  function startQuiz(quiz, levelKey) {
+    stopTimer();
+    var created;
+    try {
+      created = QuizEngine.createSession({
+        quiz: quiz,
+        levelKey: levelKey,
+        secondsPerQuestion: LEVELS[levelKey].secondsPerQuestion,
+        now: Date.now()
+      });
+    } catch (error) {
+      return error.message;
+    }
+
+    session = created;
+    lastRun = { quiz: quiz, levelKey: levelKey };
+    announced = {};
+    byId('quiz-live').textContent = '';
+
+    byId('quiz-kicker').textContent = quiz.category;
+    byId('quiz-heading').textContent = quiz.title;
+    byId('quiz-level').textContent = LEVELS[levelKey].label;
+
+    buildNavigator();
+    renderQuestion();
+    renderTimer(QuizEngine.remainingSeconds(session, Date.now()));
+    window.addEventListener('beforeunload', onBeforeUnload);
+    showScreen('quiz', 'quiz-heading');
+    startTimer();
+    return null;
+  }
+
+  function buildNavigator() {
+    var nav = byId('q-nav');
+    nav.textContent = '';
+    session.questions.forEach(function (_, i) {
+      var item = make('li');
+      var button = make('button', '', String(i + 1));
+      button.type = 'button';
+      button.dataset.index = String(i);
+      item.appendChild(button);
+      nav.appendChild(item);
+    });
+  }
+
+  function renderNavigator() {
+    var buttons = byId('q-nav').querySelectorAll('button');
+    buttons.forEach(function (button, i) {
+      var answered = session.answers[i] !== null;
+      button.classList.toggle('is-done', answered);
+      button.setAttribute('aria-label', 'Question ' + (i + 1) + ', ' + (answered ? 'answered' : 'not answered'));
+      if (i === session.current) button.setAttribute('aria-current', 'step');
+      else button.removeAttribute('aria-current');
+    });
+
+    var answeredNow = QuizEngine.answeredCount(session);
+    byId('quiz-progress').textContent = answeredNow + ' of ' + session.questions.length + ' answered';
+  }
+
+  // Disabling a focused button would drop focus to <body>; hand it on first.
+  function setDisabled(button, disabled, fallback) {
+    if (disabled && document.activeElement === button) fallback.focus();
+    button.disabled = disabled;
+  }
+
+  function renderQuestion() {
+    var index = session.current;
+    var question = session.questions[index];
+    var total = session.questions.length;
+
+    byId('quiz-position').textContent = 'Question ' + (index + 1) + ' of ' + total;
+    byId('q-number').textContent = String(index + 1).padStart(2, '0');
+    byId('q-text').textContent = question.text;
+
+    var options = byId('q-options');
+    options.textContent = '';
+    question.options.forEach(function (text, i) {
+      var label = make('label', 'option');
+      var input = make('input', 'option__input');
+      input.type = 'radio';
+      input.name = 'answer';
+      input.value = String(i);
+      input.checked = session.answers[index] === i;
+      label.appendChild(input);
+      label.appendChild(make('span', 'option__key', String.fromCharCode(65 + i)));
+      label.appendChild(make('span', 'option__text', text));
+      options.appendChild(label);
+    });
+
+    setDisabled(byId('q-prev'), index === 0, byId('quiz-submit'));
+    setDisabled(byId('q-next'), index === total - 1, byId('quiz-submit'));
+    renderNavigator();
+  }
+
+  function goToQuestion(index) {
+    if (!session || session.submitted) return;
+    if (!QuizEngine.goTo(session, index)) return;
+    renderQuestion();
+    byId('quiz-live').textContent = 'Question ' + (index + 1) + ' of ' + session.questions.length;
+  }
+
+  function finishQuiz(reason) {
+    if (!session || session.submitted) return;   // guard: score once
+    stopTimer();
+    var result = QuizEngine.submit(session, Date.now(), reason);
+    window.removeEventListener('beforeunload', onBeforeUnload);
+    if (byId('confirm').open) closeConfirm(false);
+    renderResult(result);
+    showScreen('result', 'result-heading');
+  }
+
+  function confirmSubmit() {
+    if (!session || session.submitted) return;
+    var open = QuizEngine.unansweredCount(session);
+    var message = open === 0
+      ? 'You have answered every question. Your answers cannot be changed after submitting.'
+      : 'You have ' + plural(open, 'unanswered question') + '. Unanswered questions score zero, and answers cannot be changed after submitting.';
+    ask({ title: 'Submit your answers?', message: message, ok: 'Submit', cancel: 'Keep working' })
+      .then(function (yes) { if (yes) finishQuiz('submitted'); });
+  }
+
+  function confirmLeave() {
+    if (!session || session.submitted) return;
+    ask({ title: 'Leave this quiz?', message: 'Your answers so far will be discarded.', ok: 'Leave quiz', cancel: 'Stay' })
+      .then(function (yes) {
+        if (!yes || !session || session.submitted) return;
+        stopTimer();
+        session = null;
+        window.removeEventListener('beforeunload', onBeforeUnload);
+        leaveToLibrary();
+      });
+  }
+
+  function renderResult(result) {
+    var timedOut = result.reason === 'timeout';
+    byId('result-kicker').textContent = lastRun.quiz.title + ' · ' + LEVELS[result.levelKey].label;
+    byId('result-heading').textContent = timedOut ? 'Time’s up.' : 'Submitted.';
+    byId('result-correct').textContent = String(result.correct);
+    byId('result-total').textContent = ' / ' + result.total;
+    byId('result-percent').textContent = result.percent + '%';
+    byId('res-correct').textContent = String(result.correct);
+    byId('res-incorrect').textContent = String(result.incorrect);
+    byId('res-unanswered').textContent = String(result.unanswered);
+    byId('res-time').textContent = formatClock(result.secondsUsed);
+  }
+
+  function wireQuizEvents() {
+    // Event delegation on the options and the navigator.
+    byId('q-options').addEventListener('change', function (event) {
+      if (!session || !event.target.matches('input[name="answer"]')) return;
+      QuizEngine.selectAnswer(session, session.current, Number(event.target.value));
+      renderNavigator();
+    });
+
+    byId('q-nav').addEventListener('click', function (event) {
+      var button = event.target.closest('button[data-index]');
+      if (button) goToQuestion(Number(button.dataset.index));
+    });
+
+    byId('q-prev').addEventListener('click', function () { if (session) goToQuestion(session.current - 1); });
+    byId('q-next').addEventListener('click', function () { if (session) goToQuestion(session.current + 1); });
+    byId('quiz-submit').addEventListener('click', confirmSubmit);
+    byId('quiz-leave').addEventListener('click', confirmLeave);
+
+    byId('confirm-ok').addEventListener('click', function () { closeConfirm(true); });
+    byId('confirm-cancel').addEventListener('click', function () { closeConfirm(false); });
+    // Esc closes the dialog without a button. A late "close" event from an
+    // earlier dialog must not cancel a newly opened one, hence the open check.
+    byId('confirm').addEventListener('close', function () {
+      if (!byId('confirm').open) settleConfirm();
+    });
+
+    byId('result-retry').addEventListener('click', function () {
+      if (lastRun) startQuiz(lastRun.quiz, lastRun.levelKey);
+    });
+    byId('result-back').addEventListener('click', function () {
+      session = null;
+      leaveToLibrary();
+    });
+
+    byId('details-start').addEventListener('click', function () {
+      if (!openQuiz) return;
+      var quiz = openQuiz;
+      var error = startQuiz(quiz, selectedLevel());
+      var box = byId('start-error');
+      if (error) {
+        box.textContent = error;
+        box.hidden = false;
+      } else {
+        box.hidden = true;
+        closeDetails();
+      }
+    });
+  }
+
   // ---------- start ----------
 
   function init() {
@@ -289,6 +590,8 @@
     renderSubjects();
     renderGrid();
     wireEvents();
+    wireQuizEvents();
+    document.body.dataset.screen = 'discover';
   }
 
   init();

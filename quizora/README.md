@@ -2,7 +2,7 @@
 
 A timed quiz platform for web-technology topics, built with plain HTML, CSS and JavaScript. No frameworks, no backend, no build step. Progress is stored in the browser's `localStorage`.
 
-> Status: **Phase 2 of 6** (visual foundation). The landing page, quiz library, search, subject filter and quiz details work. The quiz engine, results and history are built in later phases.
+> Status: **Phase 3 of 6** (quiz engine). You can browse, start, take, and submit a timed quiz and see a score summary. Answer review and saved history are built in Phase 4.
 
 ## Goals
 
@@ -31,8 +31,9 @@ quizora/
   index.html        single page; sections act as screens
   css/styles.css    tokens, base, components
   js/data.js        quiz content (5 quizzes, 50 questions)
-  js/app.js         discovery page: render, search, filter, details dialog
-  js/               (later) storage.js, quiz.js, results.js
+  js/quiz.js        quiz engine: shuffle, answers, timing, scoring (no DOM)
+  js/app.js         screens: library, details, quiz, result summary
+  js/               (later) storage.js, results.js
   assets/           favicon
 ```
 
@@ -67,6 +68,16 @@ Stored keys are prefixed `quizora:` and carry a version so outdated data can be 
 - All text from data or the search box is inserted with `textContent`, never `innerHTML`.
 - The details dialog uses the native `<dialog>` element (focus trap, Esc to close). Its Start button is intentionally disabled until the engine exists in Phase 3.
 
+## Phase 3 notes
+
+- **Engine vs. screen:** `quiz.js` holds all rules and takes the clock as an argument, so it is testable without waiting. `app.js` only draws and listens.
+- **Shuffling:** questions and options are shuffled per attempt; `correctIndex` is recomputed after the shuffle and the source data is never modified.
+- **Timer:** uses a deadline timestamp, not a decrementing counter, so a throttled background tab cannot drift. One interval at a time; it is cleared on submit, timeout, and leave.
+- **Submit guard:** `submit()` scores once and returns the same result on later calls, so a double click or the timer firing just after a manual submit cannot score twice.
+- **Reload:** reloading mid-quiz discards the attempt on purpose (a browser warning appears first). Resuming is not implemented.
+- **Unanswered:** stored as `null`, counted separately, never as correct.
+- **Answers stay hidden:** the quiz screen never renders correct answers or explanations; the engine holds them until Phase 4 review.
+
 ## Run locally
 
 Open `index.html` directly in a browser, or serve the folder:
@@ -84,8 +95,8 @@ Static hosting only. GitHub Pages (publish from the `quizora` folder or repo roo
 ## Roadmap
 
 1. Foundation (done)
-2. Landing page, search, filters, quiz cards (this phase)
-3. Quiz engine
+2. Landing page, search, filters, quiz cards (done)
+3. Quiz engine (done)
 4. Results, review and history
 5. Quality and accessibility pass
 6. Deployment and handover
