@@ -1,113 +1,182 @@
 # Quizora
 
-A timed quiz platform for web-technology topics, built with plain HTML, CSS and JavaScript. No frameworks, no backend, no build step. Progress is stored in the browser's `localStorage`.
+A timed quiz platform for web-technology topics, built with plain HTML, CSS and JavaScript. No frameworks, no backend, no build step, no external requests. Attempts and best scores are kept in the browser's `localStorage`.
 
-> Status: **Phase 4 of 6** (results and persistence). You can take a timed quiz, review every answer with its explanation, and track attempts and best scores that survive a reload.
+Pick a quiz, choose Beginner or Intermediate, answer against a countdown, then review every question with the correct answer and an explanation. Your history and best scores survive a reload.
 
-## Goals
+For the viva, see [VIVA.md](VIVA.md).
 
-- Show a complete product flow: discover, configure, take, review, track.
-- Keep every concept explainable in a viva: semantic HTML, Grid/Flexbox, custom properties, DOM events, timers, JSON and `localStorage`.
-- Deploy as a static site with relative paths only.
+## Features
 
-## Design direction
+- **Library:** 5 quizzes, 50 questions, 3 subjects (HTML, CSS, JavaScript), with search and a subject filter.
+- **Quiz engine:** four options per question, one answer each, countdown timer, progress and a numbered navigator, answers kept while moving between questions, confirmation before submitting, automatic submit when time runs out, and a guard so a quiz is scored only once.
+- **Review:** every question marked Correct, Incorrect or Unanswered, with the right option, your option and an explanation. Answers are never shown before submitting.
+- **History:** attempts, best score per quiz and level, average, recent attempts, and a confirmed Clear history.
+- **Robustness:** damaged, outdated or hand-edited stored data is skipped safely; blocked or full storage falls back to memory with a visible notice.
+- **Accessibility:** keyboard-only operation, visible focus, dialogs that trap focus, text (not only colour) for states, 200% text and 320px reflow, reduced-motion support.
 
-Quizora looks like a printed problem set rather than a SaaS dashboard.
+## Design
+
+Quizora looks like a printed problem set rather than a dashboard. All values are CSS custom properties at the top of `css/styles.css`.
 
 | Choice | Value |
 | --- | --- |
 | Surface | Warm paper `#f3eee3`, question sheets `#faf7ef` |
 | Ink | `#1b1a17`, hairline and 2px rules |
-| Accent | Red-pencil `#b8301a` (5.1:1 on paper), used sparingly |
-| Type | System serif for voice, system mono for labels and numbers (no web fonts) |
+| Accent | Red pencil `#b8301a` (5.2:1 on paper), used sparingly |
+| Type | System serif and system mono, no web fonts |
 | Shape | Square corners, hard offset shadows, no blur, no gradients |
 
-All values are CSS custom properties at the top of `css/styles.css`; a dark theme later only needs to override those tokens.
-
-## Architecture
+## Project structure
 
 ```
 quizora/
-  index.html        single page; sections act as screens
-  css/styles.css    tokens, base, components
-  js/data.js        quiz content (5 quizzes, 50 questions)
-  js/quiz.js        quiz engine: shuffle, answers, timing, scoring (no DOM)
-  js/app.js         screens: library, details, quiz, result summary
+  index.html        one page; sections are the screens
+  css/styles.css    tokens, base, components, responsive rules
+  js/data.js        quiz content only (no DOM code)
+  js/quiz.js        engine: shuffle, answers, timing, scoring (no DOM code)
   js/storage.js     attempt history in localStorage, validated on every read
   js/results.js     answer review (data + DOM)
-  assets/           favicon
+  js/app.js         screens, events, rendering, history
+  assets/favicon.svg
 ```
 
-**Screens (one visible at a time):** discover, briefing, quiz, results, history.
-
-**Planned modules**
-
-| File | Responsibility |
-| --- | --- |
-| `data.js` | Quiz and question data only, no DOM |
-| `storage.js` | Safe `localStorage` read/write with validation and versioning |
-| `quiz.js` | Quiz state, timer, answers, submission guard |
-| `results.js` | Score calculation and review rendering |
-| `app.js` | Screen switching, event wiring, discovery filters |
+Scripts load in that order with plain `<script>` tags (not ES modules), so the page also works when opened straight from the file system. All paths are relative, so it works from a subfolder such as `https://you.github.io/repo/`.
 
 **Data model**
 
 ```js
 LEVELS   = { beginner: { label, secondsPerQuestion: 45 }, intermediate: { label, secondsPerQuestion: 60 } }
 quiz     = { id, title, category, featured, summary, levels: { beginner: [question], intermediate: [question] } }
-question = { id, text, options: [4 strings], answerIndex, explanation }
+question = { text, options: [4 strings], answerIndex, explanation }
 attempt  = { quizId, quizTitle, levelKey, takenAt, secondsUsed, total, correct, incorrect, unanswered, reason }
-stored   = { v: 1, attempts: [attempt, ...] }   // key "quizora:attempts", newest 50 kept
+stored   = { v: 1, attempts: [attempt, ...] }   // localStorage key "quizora:attempts", newest 50 kept
 ```
-
-The stored value carries a version so outdated data is discarded safely. Scores are always computed from the chosen answers against the correct option; the percent is recomputed from the counts when history is read, never trusted from storage. Only summaries are stored, not individual answers.
-
-## Phase 2 notes
-
-- Scripts are plain `<script>` tags, not ES modules, so the page also works when opened from `file://` (browsers block modules there).
-- Quiz time is derived: questions x seconds per level, rounded to minutes.
-- All text from data or the search box is inserted with `textContent`, never `innerHTML`.
-- The details dialog uses the native `<dialog>` element (focus trap, Esc to close). Its Start button is intentionally disabled until the engine exists in Phase 3.
-
-## Phase 3 notes
-
-- **Engine vs. screen:** `quiz.js` holds all rules and takes the clock as an argument, so it is testable without waiting. `app.js` only draws and listens.
-- **Shuffling:** questions and options are shuffled per attempt; `correctIndex` is recomputed after the shuffle and the source data is never modified.
-- **Timer:** uses a deadline timestamp, not a decrementing counter, so a throttled background tab cannot drift. One interval at a time; it is cleared on submit, timeout, and leave.
-- **Submit guard:** `submit()` scores once and returns the same result on later calls, so a double click or the timer firing just after a manual submit cannot score twice.
-- **Reload:** reloading mid-quiz discards the attempt on purpose (a browser warning appears first). Resuming is not implemented.
-- **Unanswered:** stored as `null`, counted separately, never as correct.
-- **Answers stay hidden:** the quiz screen never renders correct answers or explanations; the engine holds them until Phase 4 review.
-
-## Phase 4 notes
-
-- **Review:** `buildReview()` returns nothing until the session is submitted, so answers cannot be shown early. Each question is marked with text tags ("Correct answer", "Your answer") as well as colour.
-- **History reads are defensive:** invalid JSON, wrong version, wrong shape, or individual bad entries are skipped; the page shows a notice and keeps working. The next save writes a clean copy.
-- **Blocked or full storage:** attempts fall back to memory for the current tab and the result screen says so.
-- **Limits:** the newest 50 attempts are kept; the table shows the latest 10.
-- **Leaving a quiz** or reloading mid-quiz saves nothing. Only submitted or timed-out attempts are recorded.
-- **Clear history** asks for confirmation and removes the stored key.
-- All stored text (such as quiz titles) is rendered with `textContent`, so edited storage cannot inject markup.
 
 ## Run locally
 
-Open `index.html` directly in a browser, or serve the folder:
+Easiest: open `index.html` in a browser.
+
+To serve it the way a host would:
 
 ```
 cd quizora
 python3 -m http.server 8000
-# visit http://localhost:8000
+# open http://localhost:8000
 ```
 
-## Deployment plan
+## Deploy
 
-Static hosting only. GitHub Pages (publish from the `quizora` folder or repo root) or Netlify (drag-and-drop the folder, no build command). Paths are relative so a project subdirectory works. Detailed steps arrive in Phase 6.
+Nothing has been deployed yet. The steps below are instructions for you to follow. What was verified is that the site loads correctly when served over local HTTP from a nested folder (all files returned 200, no console errors, a full quiz completed and saved).
 
-## Roadmap
+The site is just static files. There is no build command and no output folder to configure: publish the folder that contains `index.html`.
 
-1. Foundation (done)
-2. Landing page, search, filters, quiz cards (done)
-3. Quiz engine (done)
-4. Results, review and history (done)
-5. Quality and accessibility pass
-6. Deployment and handover
+### GitHub Pages
+
+1. Create a GitHub repository (for example `quizora`).
+2. Put the contents of this `quizora` folder at the **root** of the repository, so `index.html` is at the top level (not inside a subfolder).
+3. Commit and push:
+   ```
+   git add .
+   git commit -m "Quizora"
+   git push origin main
+   ```
+4. On GitHub open **Settings, Pages**. Under **Build and deployment**, set **Source** to **Deploy from a branch**, choose branch `main` and folder `/ (root)`, and save.
+5. Wait a minute or two. The site appears at `https://<your-username>.github.io/<repo-name>/`. The address is shown at the top of the Pages settings once it is live.
+6. Open it and run the manual checklist below.
+
+Notes: file names are case-sensitive on GitHub Pages (they already match). Pages only offers `/` and `/docs` as folders, so if the app lives in a subfolder of a larger repo, move it to the root or rename the folder to `docs`.
+
+### Netlify
+
+Drag and drop:
+
+1. Sign in at netlify.com and open **Sites**.
+2. Drag the `quizora` folder (the one containing `index.html`) onto the "drag and drop your site folder" area.
+3. Netlify gives the site an address like `https://something-random.netlify.app`. Rename it under **Site configuration, Change site name** if you like.
+
+From a Git repository instead:
+
+1. **Add new site, Import an existing project**, and connect the repository.
+2. Leave **Build command** empty and set **Publish directory** to `.` (or the folder containing `index.html`).
+3. Deploy.
+
+### After deploying
+
+Open the live address and run the checklist. In the browser's developer tools (F12), confirm the Console shows no red errors and the Network tab shows all seven files returning 200.
+
+## Manual testing checklist
+
+Tick each on the deployed site, and again in a phone-sized window.
+
+**Library**
+- [ ] Five quiz cards appear; counts read 5 quizzes, 50 questions, 2 levels.
+- [ ] Clicking HTML, CSS and JavaScript filters the cards; All subjects restores them.
+- [ ] Searching "dom" shows one card; searching "zzzz" shows the empty state with a working Clear filters.
+- [ ] View details opens a dialog; switching level changes the question count and time; Esc, the close button and clicking outside all close it.
+
+**Taking a quiz**
+- [ ] Start opens the quiz with the timer counting down and no answer marked.
+- [ ] Selecting an answer marks that number in the navigator and updates "x of 5 answered".
+- [ ] Previous, Next and the numbered buttons move between questions without losing answers.
+- [ ] Submitting with unanswered questions warns you how many are unanswered; Keep working returns to the quiz.
+- [ ] Leave quiz asks first and returns to the library without saving anything.
+- [ ] Letting the clock run out submits automatically and says "Time's up."
+- [ ] Reloading in the middle of a quiz returns to the library (the attempt is discarded, after a browser warning).
+
+**Result and review**
+- [ ] Correct, incorrect and unanswered counts add up to the total; the percentage matches.
+- [ ] Every question shows the correct answer, your answer if you gave one, and an explanation.
+- [ ] The Missed filter hides correct questions; Try again starts a clean quiz.
+
+**History**
+- [ ] After finishing, Your record shows the attempt; the card shows "Your best".
+- [ ] Reloading the page keeps the history.
+- [ ] A lower score then a higher score give the "Your best at this level" and "New personal best" messages.
+- [ ] Clear history asks first; after confirming, history and badges are gone and stay gone after reload.
+- [ ] In the console run `localStorage.setItem('quizora:attempts','{oops')` and reload: the page still works and shows a notice.
+
+**Accessibility**
+- [ ] Using only the keyboard (Tab, Shift+Tab, arrows, Enter, Esc) you can complete a quiz and read the review.
+- [ ] A visible outline appears on every focused control.
+- [ ] Zooming the browser to 200% causes no sideways scrolling.
+
+## Screenshots for your report
+
+Capture these at desktop width (about 1280px) and phone width (about 390px, using the browser's device toolbar):
+
+1. Landing page with the hero, subject index and quiz cards.
+2. A quiz card's details dialog with the level picker.
+3. A question mid-quiz, showing the timer bar and numbered navigator.
+4. The "Submit your answers?" confirmation with unanswered questions.
+5. The result screen with score and review (include one incorrect and one unanswered question).
+6. Your record with several attempts.
+7. The low-time state (the bar and clock turn red in the last 20%).
+
+## Limitations
+
+- History stores summaries only (score, level, time), not which option you chose per question, so older attempts cannot be re-reviewed. The full review exists only on the result screen right after an attempt.
+- History is per browser and per device. Clearing site data or using another browser starts fresh.
+- The newest 50 attempts are kept; the table shows the latest 10.
+- Reloading mid-quiz discards the attempt on purpose; resuming is not implemented.
+- 50 questions in 5 quizzes is a demonstration set. The questions and explanations were written for this project; re-read them before relying on them for assessment.
+- Verified in headless Chrome only. Not tested with a screen reader, in Safari or Firefox, or on physical touch devices.
+
+## Adding your own quiz
+
+Add an object to `QUIZ_DATA` in `js/data.js` following the data model above: a unique `id`, a `category`, and at least one question in both `beginner` and `intermediate`. Each question needs exactly four options and an `answerIndex` from 0 to 3. Invalid questions are skipped, and a quiz missing either level is left out of the library.
+
+## Testing performed during development
+
+Automated, run in headless Chrome and Node, all passing at the end of Phase 5:
+
+- 25 engine tests (scoring, unanswered, timer, double-submit guard, shuffle correctness, bad data).
+- 66 storage and review tests (round trip, malformed and hostile storage, caps, blocked storage, best-score logic).
+- 94 in-page tests (quiz flow, timeouts, review, history, persistence, clearing, corrupt data).
+- 31 keyboard-only checks with real key events.
+- 25 reflow checks at 320, 375 and 768px and at 200% text.
+- 24 semantic and reduced-motion checks.
+
+Phase 6 added a serve-over-HTTP-from-a-subfolder check: all files 200, no console errors, a quiz completed and saved.
+
+The checklist above is for you to run on the live site.

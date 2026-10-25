@@ -296,15 +296,25 @@
 
   var SCREENS = ['discover', 'quiz', 'result'];
 
+  var HOME_TITLE = document.title;
+
+  // The tab title follows the screen so history, tabs and screen readers say where you are.
+  function titleFor(name) {
+    if (name === 'quiz' && lastRun) return lastRun.quiz.title + ' · Quizora';
+    if (name === 'result' && lastRun) return 'Result: ' + lastRun.quiz.title + ' · Quizora';
+    return HOME_TITLE;
+  }
+
   function showScreen(name, focusId) {
     SCREENS.forEach(function (key) { byId('screen-' + key).hidden = key !== name; });
+    document.title = titleFor(name);
     document.body.dataset.screen = name;
     window.scrollTo(0, 0);
     if (focusId) byId(focusId).focus({ preventScroll: true });
   }
 
   function leaveToLibrary() {
-    showScreen('discover');
+    showScreen('discover', 'quizzes-title');
     byId('quizzes').scrollIntoView();
   }
 
@@ -737,6 +747,8 @@
       } else {
         box.hidden = true;
         closeDetails();
+        // Closing the dialog tries to restore focus to the (now hidden) card button.
+        byId('quiz-heading').focus({ preventScroll: true });
       }
     });
   }
